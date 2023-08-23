@@ -1,8 +1,12 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Diagnostics;
+using Unity.Profiling;
+using UnityEngine.Profiling;
 using UnityEngine.UI;
+using Debug = UnityEngine.Debug;
 
 public class Controller : MonoBehaviour {
     public int Size = 500;
@@ -13,6 +17,7 @@ public class Controller : MonoBehaviour {
     public Text LastLibName;
     public Text LastActionName;
     public Text LastTimeValue;
+    public Text LastMemoryAllocationsValue;
     public Text Notes;
     public Text LoadedStatus;
 
@@ -24,6 +29,8 @@ public class Controller : MonoBehaviour {
 
     private string m_jsonText;
     private Holder m_holder;
+
+    private ProfilerRecorder gcRecorder;
 
     public enum JsonAction
     {
@@ -55,7 +62,9 @@ public class Controller : MonoBehaviour {
     }
 
 	// Use this for initialization
-	void Start () {
+	void Start ()
+    {
+        gcRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame");
         LocateJsonWrapperClasses();
 
         CreateActionButtonsForWrappers();
@@ -136,6 +145,8 @@ public class Controller : MonoBehaviour {
 
     // Update is called once per frame
     void Update() {
+        if (gcRecorder.IsRunning)
+            Debug.Log(gcRecorder.CurrentValue);
         if (m_working == -1)
         {
             if (Action != JsonAction.None)
@@ -190,8 +201,13 @@ public class Controller : MonoBehaviour {
 
             long sum = 0;
             long samples = long.Parse(NumSamplesToRun.text);
+            long sumAllocations = 0;
             string notes = string.Empty; // Gets overwritten, only last notes are shown
             long avg = 0;
+            long avgAllocations = 0;
+
+            // Force garbage collection to try and get a reliable read on memory allocations
+            GC.Collect();
 
             if (samples > 0)
             {   
@@ -220,15 +236,19 @@ public class Controller : MonoBehaviour {
 
                     //UnityEngine.Debug.Log(string.Format("----> {0} using {1} took {2}", Action, Lib, timer.ElapsedMilliseconds));
                     yield return null;
+
+                    sumAllocations += gcRecorder.LastValue;
                 }
 
                 avg = (sum / samples);
+                avgAllocations = sumAllocations / samples;
             }
 
             notes += "\n" + samples.ToString() + " samples taken";
             Notes.text = notes;
 
             LastTimeValue.text = avg.ToString();
+            LastMemoryAllocationsValue.text = avgAllocations.ToString();
         }
         else
         {
