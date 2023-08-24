@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Diagnostics;
+using Benchmarking.Logging;
 using Unity.Profiling;
 using UnityEngine.Profiling;
 using UnityEngine.UI;
@@ -35,6 +36,7 @@ public class Controller : MonoBehaviour
     private Holder m_holder;
 
     private ProfilerRecorder gcRecorder;
+    private CSVLog csvLog;
 
     public enum JsonAction
     {
@@ -80,10 +82,22 @@ public class Controller : MonoBehaviour
 
         LoadJson();
 
+        csvLog = new CSVLog();
+
         if (autoRunTests)
         {
             RunAllTests();
         }
+    }
+
+    public void CreateNewLog()
+    {
+        csvLog.CreateNewLog();
+    }
+    
+    private void OnDisable()
+    {
+        csvLog.CloseFile();
     }
 
     void CreateActionButtonsForWrappers()
@@ -229,16 +243,25 @@ public class Controller : MonoBehaviour
     {
         for (int i = 0; i < m_knownJsonLibraryWrappers.Count; i++)
         {
+            CSVLogEntry logEntry = new CSVLogEntry();
             Lib = m_knownJsonLibraryWrappers[i].GetType().ToString();
+            logEntry.library = Lib;
+            
             Action = JsonAction.Serialize;
             yield return DoBenchmark();
+            logEntry.serialiseDurationMs = LastTimeValue.text;
+            logEntry.serialiseAllocationsMB = LastMemoryAllocationsValue.text;
             
             yield return null;
             
             Action = JsonAction.Deserialize;
             yield return DoBenchmark();
+            logEntry.deserialiseDurationMs = LastTimeValue.text;
+            logEntry.deserialiseAllocationsMB = LastMemoryAllocationsValue.text;
             
             yield return null;
+            
+            csvLog.LogNewEntry(logEntry);
         }
     }
 
