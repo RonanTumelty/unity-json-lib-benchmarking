@@ -8,7 +8,10 @@ using UnityEngine.Profiling;
 using UnityEngine.UI;
 using Debug = UnityEngine.Debug;
 
-public class Controller : MonoBehaviour {
+public class Controller : MonoBehaviour
+{
+    public bool autoRunTests = false;
+    
     public int Size = 500;
     public string Lib;
     public JsonAction Action = JsonAction.None;
@@ -23,6 +26,7 @@ public class Controller : MonoBehaviour {
 
     public InputField NumEntriesToCreate;
     public InputField NumSamplesToRun;
+    public CanvasGroup UIGroup;
 
     private List<IJsonLibrary> m_knownJsonLibraryWrappers = null;
     private int m_working = -1;
@@ -37,6 +41,11 @@ public class Controller : MonoBehaviour {
         None,
         Serialize,
         Deserialize
+    }
+
+    string JsonPath
+    {
+        get { return Application.persistentDataPath + "/../" + "Sample.json"; }
     }
 
     void LocateJsonWrapperClasses()
@@ -70,43 +79,10 @@ public class Controller : MonoBehaviour {
         CreateActionButtonsForWrappers();
 
         LoadJson();
-    }
 
-    public void UnloadJson()
-    {
-        m_jsonText = null;
-        m_holder = null;
-        LoadedStatus.text = "Not Loaded";
-        LoadedStatus.color = Color.red;
-    }
-
-    public void LoadJson()
-    {
-        try
+        if (autoRunTests)
         {
-            m_jsonText = System.IO.File.ReadAllText(JsonPath());
-            m_holder = JsonUtility.FromJson<Holder>(m_jsonText);
-
-            foreach (var wrapper in m_knownJsonLibraryWrappers)
-            {
-                wrapper.Setup(m_jsonText, m_holder);
-                var customDataWrapper = wrapper as ICustomDataJsonLibrary;
-                if (customDataWrapper != null)
-                {
-                    customDataWrapper.SetJsonPath(JsonPath());
-                }
-            }
-
-            long size = m_jsonText.Length;
-            long mb = size / (1024 * 1024);
-            Notes.text = string.Format("Loaded JSON with {0} characters ({1}MB)", size, mb);
-
-            LoadedStatus.text = "Loaded!";
-            LoadedStatus.color = Color.green;
-        } catch (System.Exception e )
-        {
-            UnityEngine.Debug.Log(e.Message);
-            UnloadJson();
+            RunAllTests();
         }
     }
 
@@ -138,15 +114,83 @@ public class Controller : MonoBehaviour {
         }
     }
 
-    string JsonPath()
+    #region JSON Management
+
+    public void CreateJson()
     {
-        return Application.persistentDataPath + "/../" + "Sample.json";
+        UnloadJson();
+
+        Notes.text = "Working...";
+
+        Holder h = new Holder();
+        h.Capacity = int.Parse(NumEntriesToCreate.text);
+        h.RandomPopulate();
+
+        string jsonText = JsonUtility.ToJson(h);
+        string notes = string.Format("Randomly generated json file with {0} characters", jsonText.Length.ToString("n0"));
+
+        // Write basic json text data to default json file
+        string jsonPath = JsonPath;
+        System.IO.File.WriteAllText(jsonPath, jsonText);
+        notes += string.Format("\nWrote json text to {0}", jsonPath);
+
+        // Write custom data for wrappers that need it
+        foreach( var wrapper in m_knownJsonLibraryWrappers )
+        {
+            var customDataWrapper = wrapper as ICustomDataJsonLibrary;
+            if( customDataWrapper != null )
+            {
+                customDataWrapper.SetJsonPath(jsonPath);
+                notes += "\n"+customDataWrapper.WriteDataInCustomFormat(jsonText);
+            }
+        }
+
+        UnityEngine.Debug.Log(notes);
+        Notes.text = notes;
     }
+
+    public void LoadJson()
+    {
+        try
+        {
+            m_jsonText = System.IO.File.ReadAllText(JsonPath);
+            m_holder = JsonUtility.FromJson<Holder>(m_jsonText);
+
+            foreach (var wrapper in m_knownJsonLibraryWrappers)
+            {
+                wrapper.Setup(m_jsonText, m_holder);
+                var customDataWrapper = wrapper as ICustomDataJsonLibrary;
+                if (customDataWrapper != null)
+                {
+                    customDataWrapper.SetJsonPath(JsonPath);
+                }
+            }
+
+            long size = m_jsonText.Length;
+            long mb = size / (1024 * 1024);
+            Notes.text = string.Format("Loaded JSON with {0} characters ({1}MB)", size, mb);
+
+            LoadedStatus.text = "Loaded!";
+            LoadedStatus.color = Color.green;
+        } catch (System.Exception e )
+        {
+            UnityEngine.Debug.Log(e.Message);
+            UnloadJson();
+        }
+    }
+
+    public void UnloadJson()
+    {
+        m_jsonText = null;
+        m_holder = null;
+        LoadedStatus.text = "Not Loaded";
+        LoadedStatus.color = Color.red;
+    }
+
+    #endregion
 
     // Update is called once per frame
     void Update() {
-        if (gcRecorder.IsRunning)
-            Debug.Log(gcRecorder.CurrentValue);
         if (m_working == -1)
         {
             if (Action != JsonAction.None)
@@ -176,8 +220,31 @@ public class Controller : MonoBehaviour {
 
     }
 
+    public void RunAllTests()
+    {
+        StartCoroutine(_RunAllTests());
+    }
+
+    IEnumerator _RunAllTests()
+    {
+        for (int i = 0; i < m_knownJsonLibraryWrappers.Count; i++)
+        {
+            Lib = m_knownJsonLibraryWrappers[i].GetType().ToString();
+            Action = JsonAction.Serialize;
+            yield return DoBenchmark();
+            
+            yield return null;
+            
+            Action = JsonAction.Deserialize;
+            yield return DoBenchmark();
+            
+            yield return null;
+        }
+    }
+
     IEnumerator DoBenchmark()
     {
+        UIGroup.interactable = false;
         yield return null;
         
         // Attempt to find a wrapper matching the selection name
@@ -215,7 +282,6 @@ public class Controller : MonoBehaviour {
                 {
                     Stopwatch timer = new Stopwatch();
 
-
                     if (Action == JsonAction.Deserialize)
                     {
                         notes = string.Format("Json being used is {0} char long", m_jsonText.Length);
@@ -223,7 +289,7 @@ public class Controller : MonoBehaviour {
                     }
                     else if (Action == JsonAction.Serialize)
                     {
-                        notes = string.Format("Class being serialized has {0} complex elements", m_holder.junkList.Length);
+                        notes = string.Format("Class being serialized has {0} complex elements\n", m_holder.junkList.Length);
                         notes += wrapper.Serialize(timer);
                     }
 
@@ -257,38 +323,6 @@ public class Controller : MonoBehaviour {
 
         Action = JsonAction.None;
         m_working = -1;
+        UIGroup.interactable = true;
 	}
-
-    public void CreateJson()
-    {
-        UnloadJson();
-
-        Notes.text = "Working...";
-
-        Holder h = new Holder();
-        h.Capacity = int.Parse(NumEntriesToCreate.text);
-        h.RandomPopulate();
-
-        string jsonText = JsonUtility.ToJson(h);
-        string notes = string.Format("Randomly generated json file with {0} characters", jsonText.Length.ToString("n0"));
-
-        // Write basic json text data to default json file
-        string jsonPath = JsonPath();
-        System.IO.File.WriteAllText(jsonPath, jsonText);
-        notes += string.Format("\nWrote json text to {0}", jsonPath);
-
-        // Write custom data for wrappers that need it
-        foreach( var wrapper in m_knownJsonLibraryWrappers )
-        {
-            var customDataWrapper = wrapper as ICustomDataJsonLibrary;
-            if( customDataWrapper != null )
-            {
-                customDataWrapper.SetJsonPath(jsonPath);
-                notes += "\n"+customDataWrapper.WriteDataInCustomFormat(jsonText);
-            }
-        }
-
-        UnityEngine.Debug.Log(notes);
-        Notes.text = notes;
-    }
 }
