@@ -1,78 +1,80 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using UnityEngine;
 
 namespace Benchmarking.Logging
 {
-    public struct CSVLogEntry
+    public class CSVLogEntry
     {
         public string library;
-        public string serialiseDurationMs;
-        public string serialiseAllocationsMB;
-        public string deserialiseDurationMs;
-        public string deserialiseAllocationsMB;
+        public long serialiseDurationMs;
+        public long serialiseAllocationsMB;
+        public long deserialiseDurationMs;
+        public long deserialiseAllocationsMB;
 
     }
     
     public class CSVLog
     {
-        private FileStream _logFile;
-        private bool fileHandleOpen = false;
-        private string logName = "";
-        private string fullPath = "";
+        private Dictionary<string, CSVLogEntry> logEntries;
 
         public CSVLog()
         {
-            CreateNewLog();
+            logEntries = new Dictionary<string, CSVLogEntry>();
+        }
+
+        public void LogResult(string library, Controller.JsonAction actionType, long duration, long allocations)
+        {
+            CSVLogEntry entry;
+            logEntries.TryGetValue(library, out entry);
+            if (entry == null)
+            {
+                entry = new CSVLogEntry();
+                entry.library = library;
+            }
+
+            switch (actionType)
+            {
+                case Controller.JsonAction.Serialize:
+                    entry.serialiseDurationMs = duration;
+                    entry.serialiseAllocationsMB = allocations;
+                    break;
+                case Controller.JsonAction.Deserialize:
+                    entry.deserialiseDurationMs = duration;
+                    entry.deserialiseAllocationsMB = allocations;
+                    break;
+            }
+
+            logEntries[library] = entry;
         }
         
-        public void CreateNewLog()
+        public void OutputLog()
         {
             DateTime now = DateTime.Now;
-            logName = string.Concat(now.Year, now.Month, now.Day, now.Hour, now.Minute, ".csv");
-            fullPath = Path.Combine(Application.persistentDataPath, logName);
+            string logName = string.Concat(now.Year, now.Month, now.Day, now.Hour, now.Minute, ".csv");
+            string fullPath = Path.Combine(Application.persistentDataPath, logName);
             
             try
             {
-                _logFile = File.Create(fullPath);
-                fileHandleOpen = true;
+                FileStream _logFile = File.Create(fullPath);
                 Debug.Log("Created new log session at path " + fullPath);
-            }
-            catch (IOException e)
-            {
-                Debug.LogError("Couldn't open file at path " + fullPath);
-            }
-        }
-        
-        public void LogNewEntry(CSVLogEntry entry)
-        {
-            if (!fileHandleOpen)
-            {
-                Debug.LogError("No log file handle open");
-                return;
-            }
 
-            try
-            {
-                string logText = string.Concat(entry.library, ",", entry.serialiseDurationMs, ",", entry.serialiseAllocationsMB,
-                                 ",", entry.deserialiseDurationMs, ",", entry.deserialiseAllocationsMB, "\n");
-                _logFile.Write(new UTF8Encoding(true).GetBytes(logText));
+                foreach (var logEntryPair in logEntries)
+                {
+                    CSVLogEntry entry = logEntryPair.Value;
+                    string logText = string.Concat(entry.library, ",", entry.serialiseDurationMs.ToString(), ",", 
+                        entry.serialiseAllocationsMB.ToString(), ",", entry.deserialiseDurationMs.ToString(), ",", 
+                        entry.deserialiseAllocationsMB.ToString(), "\n");
+                    _logFile.Write(new UTF8Encoding(true).GetBytes(logText));
+                }
+                
+                _logFile.Close();
             }
             catch (IOException e)
             {
                 Debug.LogError("Couldn't write to csv file " + fullPath);
-            }
-        }
-
-        public void CloseFile()
-        {
-            if (fileHandleOpen)
-            {
-                _logFile.Close();
-                _logFile = null;
-                fileHandleOpen = false;
-                Debug.Log("Closed file handle to " + fullPath);
             }
         }
     }

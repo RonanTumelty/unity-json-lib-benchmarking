@@ -90,16 +90,6 @@ public class Controller : MonoBehaviour
         }
     }
 
-    public void CreateNewLog()
-    {
-        csvLog.CreateNewLog();
-    }
-    
-    private void OnDisable()
-    {
-        csvLog.CloseFile();
-    }
-
     void CreateActionButtonsForWrappers()
     {
         foreach (var wrapper in m_knownJsonLibraryWrappers)
@@ -243,25 +233,18 @@ public class Controller : MonoBehaviour
     {
         for (int i = 0; i < m_knownJsonLibraryWrappers.Count; i++)
         {
-            CSVLogEntry logEntry = new CSVLogEntry();
             Lib = m_knownJsonLibraryWrappers[i].GetType().ToString();
-            logEntry.library = Lib;
             
             Action = JsonAction.Serialize;
             yield return DoBenchmark();
-            logEntry.serialiseDurationMs = LastTimeValue.text;
-            logEntry.serialiseAllocationsMB = LastMemoryAllocationsValue.text;
             
             yield return null;
             
             Action = JsonAction.Deserialize;
             yield return DoBenchmark();
-            logEntry.deserialiseDurationMs = LastTimeValue.text;
-            logEntry.deserialiseAllocationsMB = LastMemoryAllocationsValue.text;
             
             yield return null;
-            
-            csvLog.LogNewEntry(logEntry);
+            OutputCSVLog();
         }
     }
 
@@ -338,6 +321,8 @@ public class Controller : MonoBehaviour
 
             LastTimeValue.text = avg.ToString();
             LastMemoryAllocationsValue.text = avgAllocations.ToString();
+            
+            csvLog.LogResult(Lib, Action, avg, avgAllocations);
         }
         else
         {
@@ -348,4 +333,9 @@ public class Controller : MonoBehaviour
         m_working = -1;
         UIGroup.interactable = true;
 	}
+
+    public void OutputCSVLog()
+    {
+        csvLog.OutputLog();
+    }
 }
