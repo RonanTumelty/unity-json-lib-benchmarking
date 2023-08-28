@@ -244,13 +244,13 @@ public class Controller : MonoBehaviour
             yield return DoBenchmark();
             
             yield return null;
-            OutputCSVLog();
-
-            Notes.text = $"Quickest (Serialise): {csvLog.results.quickestSerialise.ToString()}\n" +
-                         $"Least Allocations (Serialise): {csvLog.results.leastAllocationsSerialise.ToString()}\n" +
-                         $"Quickest (Deserialise): {csvLog.results.quickestDeserialise.ToString()}\n" +
-                         $"Least Allocations (Deserialise): {csvLog.results.leastAllocationsDeserialise.ToString()}\n";
         }
+        OutputCSVLog();
+
+        Notes.text = $"Quickest (Serialise): {csvLog.results.quickestSerialise.ToString()}\n" +
+                     $"Least Allocations (Serialise): {csvLog.results.leastAllocationsSerialise.ToString()}\n" +
+                     $"Quickest (Deserialise): {csvLog.results.quickestDeserialise.ToString()}\n" +
+                     $"Least Allocations (Deserialise): {csvLog.results.leastAllocationsDeserialise.ToString()}\n";
     }
 
     IEnumerator DoBenchmark()

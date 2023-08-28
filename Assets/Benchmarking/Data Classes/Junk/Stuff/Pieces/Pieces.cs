@@ -1,9 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using CodeTitans.JSon;
 using UnityEngine;
 
 [System.Serializable]
-public class Pieces : ICrap
+public class Pieces : ICrap, IJSonSerializable
 {
     public string PieceName;
     public int[] SomePieces;
@@ -20,6 +21,7 @@ public class Pieces : ICrap
         }
     }
 
+    #region SimpleJson
     public void SimpleJSONParse(SimpleJSON.JSONNode node)
     {
         PieceName = node["PieceName"];
@@ -46,4 +48,33 @@ public class Pieces : ICrap
 
         return n;
     }
+    #endregion
+
+    #region CodeTitans
+    public void Write(IJSonWriter output)
+    {
+        output.WriteObjectBegin();
+        output.WriteMember("PieceName", PieceName);
+        output.WriteMember("SomePieces");
+        output.WriteArrayBegin();
+        foreach (var piece in SomePieces)
+        {
+            output.WriteValue(piece);
+        }
+        output.WriteArrayEnd();
+        output.WriteObjectEnd();
+    }
+
+    public void Read(IJSonObject input)
+    {
+        PieceName = input["PieceName"].StringValue;
+
+        var SomePiecesArray = input["SomePieces"];
+        SomePieces = new int[SomePiecesArray.Count];
+        for (int i = 0; i < SomePiecesArray.Count; i++)
+        {
+            SomePieces[i] = SomePiecesArray[i].Int32Value;
+        }
+    }
+    #endregion
 }
