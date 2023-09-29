@@ -74,7 +74,7 @@ namespace Benchmarking.Logging
             logEntries[library] = entry;
         }
         
-        public void OutputLog()
+        public string OutputLog()
         {
             DateTime now = DateTime.Now;
             string logName = string.Concat(now.Year, now.Month, now.Day, now.Hour, now.Minute, ".csv");
@@ -100,10 +100,12 @@ namespace Benchmarking.Logging
                 }
                 
                 _logFile.Close();
+                return fullPath;
             }
             catch (IOException e)
             {
                 Debug.LogError("Couldn't write to csv file " + fullPath);
+                return string.Empty;
             }
         }
     }
