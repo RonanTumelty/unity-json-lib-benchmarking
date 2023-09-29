@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Text;
+using SimdJsonSharp;
 
 public interface ICrap
 {
@@ -12,4 +13,7 @@ public interface ICrap
     void SimpleJSONParse(SimpleJSON.JSONNode node);
 
     SimpleJSON.JSONNode SimpleJSONPopulateNode();
+    
+    // Helper for the SimdJSON lib
+    void Read(ParsedJsonIteratorN iterator);
 }

@@ -1,6 +1,9 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using CodeTitans.JSon;
+using SimdJsonSharp;
 
 [System.Serializable]
 public class Holder : ICrap
@@ -18,6 +21,8 @@ public class Holder : ICrap
         }
     }
 
+
+    #region SimpleJSON
     // Helper for the SimpleJSON lib
     public void SimpleJSONParse(SimpleJSON.JSONNode node)
     {
@@ -43,4 +48,83 @@ public class Holder : ICrap
 
         return arr;
     }
+    #endregion
+
+    #region CodeTitans
+    public void Read(IJSonObject input)
+    {
+        Capacity = input["Capacity"].Int32Value;
+        var junkListArray = input["junkList"];
+        junkList = new Junk[junkListArray.Count];
+        for (int i = 0; i < junkListArray.Count; i++)
+        {
+            junkList[i] = new Junk();
+            junkList[i].Read(junkListArray[i]);
+        }
+    }
+
+    public void Write(IJSonWriter output)
+    {
+        output.WriteObjectBegin();
+        
+        output.WriteMember("Capacity", Capacity);
+        
+        output.WriteMember("junkList");
+        output.WriteArrayBegin();
+        foreach (var junk in junkList)
+        {
+            junk.Write(output);
+        }
+        output.WriteArrayEnd();
+        
+        output.WriteObjectEnd();
+    }
+    #endregion
+
+    #region SimdJSON
+    public void Read(ParsedJsonIteratorN iterator)
+    {
+        while (iterator.MoveForward())
+        {
+            if (iterator.IsString())
+            {
+                string label = iterator.GetUtf16String();
+                iterator.MoveForward();
+                switch (label)
+                {
+                    case "Capacity":
+                        Capacity = (int)iterator.GetInteger();
+                        junkList = new Junk[Capacity];
+                        break;
+                    case "junkList":
+                        iterator.MoveForward();
+                        for (int i = 0; i < Capacity; i++)
+                        {
+                            junkList[i] = new Junk();
+                            junkList[i].Read(iterator);
+                        }
+                        break;
+                }
+                
+            }
+        }
+    }
+
+    // public void Write(IJSonWriter output)
+    // {
+    //     output.WriteObjectBegin();
+    //     
+    //     output.WriteMember("Capacity", Capacity);
+    //     
+    //     output.WriteMember("junkList");
+    //     output.WriteArrayBegin();
+    //     foreach (var junk in junkList)
+    //     {
+    //         junk.Write(output);
+    //     }
+    //     output.WriteArrayEnd();
+    //     
+    //     output.WriteObjectEnd();
+    // }
+    #endregion
 }
