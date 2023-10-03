@@ -129,6 +129,7 @@ public class Controller : MonoBehaviour
         Holder h = new Holder();
         h.Capacity = int.Parse(NumEntriesToCreate.text);
         h.RandomPopulate();
+        m_holder = h;
 
         string jsonText = JsonUtility.ToJson(h);
         string notes = string.Format("Randomly generated json file with {0} characters", jsonText.Length.ToString("n0"));
@@ -153,7 +154,7 @@ public class Controller : MonoBehaviour
         Notes.text = notes;
     }
 
-    public void LoadJson()
+    public bool LoadJson()
     {
         try
         {
@@ -176,10 +177,12 @@ public class Controller : MonoBehaviour
 
             LoadedStatus.text = "Loaded!";
             LoadedStatus.color = Color.green;
+            return true;
         } catch (System.Exception e )
         {
             UnityEngine.Debug.Log(e.Message);
             UnloadJson();
+            return false;
         }
     }
 
@@ -231,6 +234,14 @@ public class Controller : MonoBehaviour
 
     IEnumerator _RunAllTests()
     {
+        if (m_holder == null)
+        {
+            if (!LoadJson())
+            {
+                CreateJson();
+            }
+        }
+        
         for (int i = 0; i < m_knownJsonLibraryWrappers.Count; i++)
         {
             Lib = m_knownJsonLibraryWrappers[i].GetType().ToString();
